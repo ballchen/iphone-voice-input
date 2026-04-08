@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+
+  <!-- PWA / iOS home screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="語音輸入" />
+  <meta name="theme-color" content="#0f0f13" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
+  <title>語音輸入</title>
+
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Tokens ── */
+    :root {
+      --bg:        #0f0f13;
+      --surface:   #1a1a24;
+      --border:    #2e2e42;
+      --accent:    #4F46E5;
+      --accent-hi: #6366f1;
+      --danger:    #ef4444;
+      --text:      #e8e8f0;
+      --muted:     #6b6b80;
+      --radius:    16px;
+      --safe-top:    env(safe-area-inset-top,    0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, "Helvetica Neue", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    /* ── Layout ── */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding-top: calc(var(--safe-top) + 16px);
+      padding-bottom: calc(var(--safe-bottom) + 16px);
+      padding-left: 16px;
+      padding-right: 16px;
+      gap: 12px;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .logo svg { flex-shrink: 0; }
+
+    /* Status pill */
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      transition: all 0.3s;
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s;
+    }
+    .status.connected .status-dot { background: #22c55e; }
+    .status.connected { color: #22c55e; border-color: #22c55e44; }
+    .status.error { color: var(--danger); border-color: #ef444444; }
+    .status.error .status-dot { background: var(--danger); }
+
+    /* ── Hint banner ── */
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      line-height: 1.5;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hint span { font-size: 18px; }
+
+    /* ── Textarea ── */
+    .textarea-wrap {
+      flex: 1;
+      position: relative;
+    }
+    textarea {
+      width: 100%;
+      height: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 17px;
+      line-height: 1.6;
+      padding: 16px;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s;
+      caret-color: var(--accent);
+      -webkit-overflow-scrolling: touch;
+    }
+    textarea:focus {
+      border-color: var(--accent);
+    }
+    textarea::placeholder { color: var(--muted); }
+
+    /* char count */
+    .char-count {
+      position: absolute;
+      bottom: 10px;
+      right: 14px;
+      font-size: 11px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    /* ── Options row ── */
+    .options {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    /* Custom toggle */
+    .toggle-label input { display: none; }
+    .toggle-track {
+      width: 36px; height: 20px;
+      background: var(--border);
+      border-radius: 999px;
+      position: relative;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .toggle-track::after {
+      content: "";
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.2s;
+    }
+    .toggle-label input:checked + .toggle-track { background: var(--accent); }
+    .toggle-label input:checked + .toggle-track::after { transform: translateX(16px); }
+
+    /* ── Buttons ── */
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+    button {
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0 20px;
+      height: 52px;
+      transition: opacity 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:active { transform: scale(0.96); opacity: 0.85; }
+
+    .btn-clear {
+      background: var(--surface);
+      color: var(--muted);
+      border: 1.5px solid var(--border);
+      flex: 0 0 52px;
+      width: 52px;
+      padding: 0;
+      font-size: 20px;
+    }
+    .btn-send {
+      flex: 1;
+      background: var(--accent);
+      color: white;
+      font-size: 16px;
+    }
+    .btn-send:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .btn-send.sending {
+      background: var(--accent-hi);
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: calc(var(--safe-bottom) + 80px);
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #22c55e;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: 999px;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .toast.error { background: var(--danger); }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="8" fill="#4F46E5"/>
+        <rect x="11" y="5" width="6" height="11" rx="3" fill="white"/>
+        <path d="M7 14c0 3.866 3.134 7 7 7s7-3.134 7-7" stroke="white" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <line x1="14" y1="21" x2="14" y2="24" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="11" y1="24" x2="17" y2="24" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      語音輸入
+    </div>
+    <div class="status" id="status">
+      <div class="status-dot"></div>
+      <span id="status-text">連線中…</span>
+    </div>
+  </header>
+
+  <!-- Hint -->
+  <div class="hint">
+    <span>🎤</span>
+    點擊下方文字框，再按鍵盤上的麥克風按鈕開始說話
+  </div>
+
+  <!-- Text area -->
+  <div class="textarea-wrap">
+    <textarea
+      id="input"
+      placeholder="說話後文字會出現在這裡…"
+      autofocus
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
+    ></textarea>
+    <div class="char-count" id="char-count">0</div>
+  </div>
+
+  <!-- Options -->
+  <div class="options">
+    <label class="toggle-label">
+      <input type="checkbox" id="newline-toggle" />
+      <div class="toggle-track"></div>
+      送出後按 Enter
+    </label>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn-clear" id="btn-clear" title="清除">✕</button>
+    <button class="btn-send" id="btn-send" disabled>送出到電腦</button>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+// ── Service Worker ──────────────────────────────────────────────
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+
+// ── DOM refs ────────────────────────────────────────────────────
+const inputEl       = document.getElementById("input");
+const charCount     = document.getElementById("char-count");
+const statusEl      = document.getElementById("status");
+const statusText    = document.getElementById("status-text");
+const btnSend       = document.getElementById("btn-send");
+const btnClear      = document.getElementById("btn-clear");
+const newlineToggle = document.getElementById("newline-toggle");
+const toastEl       = document.getElementById("toast");
+
+// ── Restore toggle preference ───────────────────────────────────
+newlineToggle.checked = localStorage.getItem("newline") === "1";
+newlineToggle.addEventListener("change", () =>
+  localStorage.setItem("newline", newlineToggle.checked ? "1" : "0")
+);
+
+// ── Socket.IO ───────────────────────────────────────────────────
+// Connect to same host (works when opened via IP or hostname)
+const socket = io({ transports: ["websocket"], reconnectionDelay: 1000 });
+
+socket.on("connect", () => setStatus("connected", "已連線"));
+socket.on("disconnect", () => setStatus("error", "已斷線"));
+socket.on("connect_error", () => setStatus("error", "連線失敗"));
+socket.on("typed", () => showToast("✓ 已輸入"));
+
+// ── Status helper ───────────────────────────────────────────────
+function setStatus(cls, text) {
+  statusEl.className = "status " + cls;
+  statusText.textContent = text;
+}
+
+// ── Toast helper ────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, isError = false) {
+  toastEl.textContent = msg;
+  toastEl.className = "toast" + (isError ? " error" : "") + " show";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastEl.className = "toast"; }, 1800);
+}
+
+// ── Textarea ────────────────────────────────────────────────────
+inputEl.addEventListener("input", () => {
+  const len = inputEl.value.length;
+  charCount.textContent = len;
+  btnSend.disabled = len === 0 || !socket.connected;
+});
+
+// ── Send ────────────────────────────────────────────────────────
+function sendText() {
+  const text = inputEl.value.trim();
+  if (!text || !socket.connected) return;
+
+  btnSend.disabled = true;
+  btnSend.classList.add("sending");
+  btnSend.textContent = "傳送中…";
+
+  socket.emit("type_text", {
+    text,
+    newline: newlineToggle.checked,
+  });
+
+  // Reset after short delay
+  setTimeout(() => {
+    inputEl.value = "";
+    charCount.textContent = "0";
+    btnSend.classList.remove("sending");
+    btnSend.textContent = "送出到電腦";
+    inputEl.focus();
+  }, 300);
+}
+
+btnSend.addEventListener("click", sendText);
+btnClear.addEventListener("click", () => {
+  inputEl.value = "";
+  charCount.textContent = "0";
+  btnSend.disabled = true;
+  inputEl.focus();
+});
+
+// Disable send when socket disconnects
+socket.on("disconnect", () => { btnSend.disabled = true; });
+socket.on("connect", () => {
+  btnSend.disabled = inputEl.value.trim().length === 0;
+});
+
+// ── Prevent overscroll / rubber-band on standalone ──────────────
+document.addEventListener("touchmove", e => {
+  if (e.target === inputEl) return;
+  e.preventDefault();
+}, { passive: false });
+</script>
+</body>
+</html>
