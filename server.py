@@ -107,11 +107,18 @@ def _get_clipboard_text_windows() -> str:
 def paste_text_ime_safe(text: str):
     original = _get_clipboard_text_windows()
     _set_clipboard_text_windows(text)
+    # Try Ctrl+V first.
     keyboard.press(Key.ctrl)
     keyboard.press("v")
     keyboard.release("v")
     keyboard.release(Key.ctrl)
     # Give the target app a moment to consume clipboard content before restore.
+    time.sleep(0.06)
+    # Some apps may block Ctrl+V but accept Shift+Insert.
+    keyboard.press(Key.shift)
+    keyboard.press(Key.insert)
+    keyboard.release(Key.insert)
+    keyboard.release(Key.shift)
     time.sleep(0.03)
     _set_clipboard_text_windows(original)
 
@@ -352,19 +359,29 @@ def on_type_text(data):
     typed_ok = False
     if sys.platform == "win32":
         try:
-            # Unicode SendInput bypasses keyboard layout/IME mapping.
-            type_text_unicode_windows(text)
+            # First choice: explicit paste, usually IME/layout independent.
+            paste_text_ime_safe(text)
             typed_ok = True
+            log_line("Input method used: clipboard_paste")
         except Exception as exc:
-            log_line(f"Unicode SendInput fallback triggered: {type(exc).__name__}: {exc}")
+            log_line(f"Clipboard paste fallback triggered: {type(exc).__name__}: {exc}")
             try:
-                # Secondary path for apps that do not accept Unicode injection.
-                paste_text_ime_safe(text)
+                # Second choice: Unicode SendInput bypasses keyboard layout/IME mapping.
+                type_text_unicode_windows(text)
                 typed_ok = True
+                log_line("Input method used: unicode_sendinput")
             except Exception as exc2:
-                log_line(f"IME-safe paste fallback triggered: {type(exc2).__name__}: {exc2}")
+                log_line(f"Unicode SendInput fallback triggered: {type(exc2).__name__}: {exc2}")
     if not typed_ok:
-        keyboard.type(text)
+        try:
+            # Last resort fallback.
+            keyboard.type(text)
+            typed_ok = True
+            log_line("Input method used: keyboard_type_fallback")
+        except Exception as exc3:
+            log_line(f"Keyboard type fallback failed: {type(exc3).__name__}: {exc3}")
+            emit("typed", {"ok": False, "error": "input_failed"})
+            return
     if data.get("newline"):
         keyboard.press(Key.enter)
         keyboard.release(Key.enter)
