@@ -44,7 +44,7 @@ jobs:
 
       - name: Build Windows executable
         run: |
-          pyinstaller --onefile --noconsole --name VoiceInput --add-data "web;web" server.py
+          pyinstaller --onefile --noconsole --name VoiceInput --add-data "web;web" --collect-submodules engineio.async_drivers --hidden-import engineio.async_drivers.threading server.py
 
       - name: Package zip for release
         shell: pwsh

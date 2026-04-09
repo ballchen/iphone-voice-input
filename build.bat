@@ -8,6 +8,8 @@ pyinstaller ^
   --onefile ^
   --noconsole ^
   --name VoiceInput ^
+  --collect-submodules engineio.async_drivers ^
+  --hidden-import engineio.async_drivers.threading ^
   --add-data "web;web" ^
   server.py
 
