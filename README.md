@@ -2,6 +2,10 @@
 
 用 iPhone 語音辨識將文字輸入到 Windows 電腦的任意視窗。
 
+## 安裝教學
+
+- Windows 一鍵/簡易安裝請看：[`WINDOWS_INSTALL_GUIDE.md`](./WINDOWS_INSTALL_GUIDE.md)
+
 ## 功能
 
 - iPhone 加入主畫面，像 native app 一樣使用（PWA）
