@@ -116,6 +116,58 @@ def paste_text_ime_safe(text: str):
     _set_clipboard_text_windows(original)
 
 
+def type_text_unicode_windows(text: str):
+    import ctypes
+
+    INPUT_KEYBOARD = 1
+    KEYEVENTF_UNICODE = 0x0004
+    KEYEVENTF_KEYUP = 0x0002
+
+    class KEYBDINPUT(ctypes.Structure):
+        _fields_ = [
+            ("wVk", ctypes.c_ushort),
+            ("wScan", ctypes.c_ushort),
+            ("dwFlags", ctypes.c_uint),
+            ("time", ctypes.c_uint),
+            ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
+        ]
+
+    class INPUTUNION(ctypes.Union):
+        _fields_ = [("ki", KEYBDINPUT)]
+
+    class INPUT(ctypes.Structure):
+        _fields_ = [("type", ctypes.c_uint), ("union", INPUTUNION)]
+
+    def make_unicode_input(codepoint: int, keyup: bool) -> INPUT:
+        flags = KEYEVENTF_UNICODE | (KEYEVENTF_KEYUP if keyup else 0)
+        ki = KEYBDINPUT(
+            wVk=0,
+            wScan=codepoint,
+            dwFlags=flags,
+            time=0,
+            dwExtraInfo=None,
+        )
+        return INPUT(type=INPUT_KEYBOARD, union=INPUTUNION(ki=ki))
+
+    events = []
+    utf16 = text.encode("utf-16-le")
+    for i in range(0, len(utf16), 2):
+        code_unit = int.from_bytes(utf16[i:i + 2], "little")
+        events.append(make_unicode_input(code_unit, keyup=False))
+        events.append(make_unicode_input(code_unit, keyup=True))
+
+    if not events:
+        return
+
+    sent = ctypes.windll.user32.SendInput(
+        len(events),
+        (INPUT * len(events))(*events),
+        ctypes.sizeof(INPUT),
+    )
+    if sent != len(events):
+        raise RuntimeError(f"SendInput failed: sent {sent}/{len(events)}")
+
+
 def log_line(message: str):
     RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -297,15 +349,21 @@ def on_type_text(data):
     if not text:
         return
     time.sleep(0.05)          # Let the focus return to target window
-    paste_ok = False
+    typed_ok = False
     if sys.platform == "win32":
         try:
-            # Paste is IME-safe: avoids Zhuyin/Pinyin conversion issues.
-            paste_text_ime_safe(text)
-            paste_ok = True
+            # Unicode SendInput bypasses keyboard layout/IME mapping.
+            type_text_unicode_windows(text)
+            typed_ok = True
         except Exception as exc:
-            log_line(f"IME-safe paste fallback triggered: {type(exc).__name__}: {exc}")
-    if not paste_ok:
+            log_line(f"Unicode SendInput fallback triggered: {type(exc).__name__}: {exc}")
+            try:
+                # Secondary path for apps that do not accept Unicode injection.
+                paste_text_ime_safe(text)
+                typed_ok = True
+            except Exception as exc2:
+                log_line(f"IME-safe paste fallback triggered: {type(exc2).__name__}: {exc2}")
+    if not typed_ok:
         keyboard.type(text)
     if data.get("newline"):
         keyboard.press(Key.enter)
