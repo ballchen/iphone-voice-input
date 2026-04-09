@@ -5,6 +5,7 @@
 ## 安裝教學
 
 - Windows 一鍵/簡易安裝請看：[`WINDOWS_INSTALL_GUIDE.md`](./WINDOWS_INSTALL_GUIDE.md)
+- 使用者直接下載 EXE：到 GitHub **Releases** 下載 `VoiceInput.exe`
 
 ## 功能
 
@@ -42,6 +43,27 @@ build.bat
 ```
 
 產生 `dist/VoiceInput.exe`，雙擊即可執行，不需安裝 Python。
+
+## 發布流程（自動上傳 EXE 到 Release）
+
+此專案已設定 GitHub Actions：當你在 GitHub 發布 Release 後，會自動：
+
+1. 在 Windows runner 安裝依賴
+2. 用 PyInstaller 打包 `VoiceInput.exe`
+3. 把 `dist/VoiceInput.exe` 附加到該 Release
+
+Workflow 檔案位置：
+
+```text
+.github/workflows/release-windows-exe.yml
+```
+
+維護者使用方式：
+
+1. Push 程式碼到 `main`
+2. 建立並 publish 一個新 Release（例如 tag `v1.0.0`）
+3. 等待 GitHub Actions 完成
+4. 到該 Release 的 Assets 下載 `VoiceInput.exe`
 
 ## iPhone 設定（第一次）
 

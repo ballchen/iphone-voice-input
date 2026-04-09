@@ -11,7 +11,8 @@
 
 ### Step 1：下載程式
 
-取得 `VoiceInput.exe`（若你是專案維護者，可先用 `build.bat` 自行打包）。
+1. 打開 GitHub 專案頁面的 **Releases**
+2. 下載最新版本中的 `VoiceInput.exe`
 
 ### Step 2：執行程式
 
@@ -95,7 +96,7 @@ python server.py
 
 第一次啟動時，若 Windows 跳出防火牆提示，請允許 Python/VoiceInput 在**私人網路**通行。
 
-### 4) 想自己打包 `.exe`
+### 4) 想自己打包 `.exe`（維護者）
 
 在專案根目錄執行：
 
@@ -108,3 +109,11 @@ build.bat
 ```text
 dist\VoiceInput.exe
 ```
+
+### 5) 不想在本機打包，想自動產出 Release EXE（維護者）
+
+本專案已提供 GitHub Actions 自動流程：
+
+1. 到 GitHub 建立新 Release（例如 tag `v1.0.0`）
+2. 發布後，Actions 會自動在 Windows runner 打包 `VoiceInput.exe`
+3. 打包完成後，`VoiceInput.exe` 會自動附加到該 Release
