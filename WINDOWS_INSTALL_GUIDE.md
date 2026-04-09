@@ -2,16 +2,18 @@
 
 這份指南提供兩種安裝方式：
 
-- **方式 A（推薦）**：直接使用 `.exe`，不需要安裝 Python
+- **方式 A（推薦）**：直接使用 Release 的 `.zip`，不需要安裝 Python
 - **方式 B（開發者）**：用 Python 原始碼執行
 
 ---
 
-## 方式 A：直接執行 `.exe`（最簡單）
+## 方式 A：直接執行 Release `.zip`（最簡單）
 
 ### Step 1：下載程式
 
-取得 `VoiceInput.exe`（若你是專案維護者，可先用 `build.bat` 自行打包）。
+1. 打開 GitHub 專案頁面的 **Releases**
+2. 下載最新版本中的 `VoiceInput-windows.zip`
+3. 解壓縮後取得 `VoiceInput.exe`
 
 ### Step 2：執行程式
 
@@ -95,7 +97,7 @@ python server.py
 
 第一次啟動時，若 Windows 跳出防火牆提示，請允許 Python/VoiceInput 在**私人網路**通行。
 
-### 4) 想自己打包 `.exe`
+### 4) 想自己打包 `.exe`（維護者）
 
 在專案根目錄執行：
 
@@ -108,3 +110,11 @@ build.bat
 ```text
 dist\VoiceInput.exe
 ```
+
+### 5) 不想在本機打包，想自動產出 Release ZIP（維護者）
+
+本專案已提供 GitHub Actions 自動流程：
+
+1. 到 GitHub 建立新 Release（例如 tag `v1.0.0`）
+2. 推送 tag 後，Actions 會自動在 Windows runner 打包 `VoiceInput.exe`
+3. 打包完成後，會自動產生 `VoiceInput-windows.zip` 並附加到該 Release
