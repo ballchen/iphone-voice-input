@@ -191,6 +191,12 @@ def static_files(path):
     return send_from_directory(str(WEB_DIR), path)
 
 
+@app.route("/favicon.ico")
+def favicon():
+    # Keep browser console clean for default favicon probing.
+    return ("", 204)
+
+
 # ------------------------------------------------------------------
 # WebSocket
 # ------------------------------------------------------------------

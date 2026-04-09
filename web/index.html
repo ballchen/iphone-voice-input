@@ -307,7 +307,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/socket.io/socket.io.js"></script>
+<script src="/vendor/socket.io.min.js"></script>
 <script>
 // ── Service Worker ──────────────────────────────────────────────
 if ("serviceWorker" in navigator) {
@@ -323,6 +323,7 @@ const btnSend       = document.getElementById("btn-send");
 const btnClear      = document.getElementById("btn-clear");
 const newlineToggle = document.getElementById("newline-toggle");
 const toastEl       = document.getElementById("toast");
+let toastTimer;
 
 // ── Restore toggle preference ───────────────────────────────────
 newlineToggle.checked = localStorage.getItem("newline") === "1";
@@ -354,7 +355,6 @@ function setStatus(cls, text) {
 }
 
 // ── Toast helper ────────────────────────────────────────────────
-let toastTimer;
 function showToast(msg, isError = false) {
   toastEl.textContent = msg;
   toastEl.className = "toast" + (isError ? " error" : "") + " show";
