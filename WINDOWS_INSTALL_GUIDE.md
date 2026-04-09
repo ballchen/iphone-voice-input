@@ -89,6 +89,13 @@ python server.py
 - 在系統匣右鍵選單按 **Copy All URLs**，把網址貼到 iPhone Safari 逐一測試
 - 確認 iPhone 的 Safari 沒有使用行動網路代理，且已允許本機網路存取
 
+### 1-1) Windows 本機也打不開 `http://localhost:8765`
+
+- 在系統匣右鍵選 **Open Local Test Page**，確認是否可開
+- 若仍失敗，請先關閉目前程式，再重新啟動 `VoiceInput.exe`
+- 確認沒有其他程式占用 `8765` 連接埠（可在 PowerShell 用 `netstat -ano | findstr 8765`）
+- 若有企業防毒/端點防護，先暫時放行 `VoiceInput.exe` 再測試
+
 ### 2) 可以連線，但文字沒有輸入到目標程式
 
 - 先用滑鼠點一下目標視窗，確保它有焦點

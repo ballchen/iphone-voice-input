@@ -5,6 +5,8 @@ import socket
 import threading
 import time
 import ipaddress
+import traceback
+from datetime import datetime
 from pathlib import Path
 
 from flask import Flask, send_from_directory, jsonify
@@ -21,6 +23,8 @@ BASE_DIR = Path(sys._MEIPASS) if hasattr(sys, "_MEIPASS") else Path(__file__).pa
 WEB_DIR = BASE_DIR / "web"
 ICON_DIR = WEB_DIR / "icons"
 PORT = 8765
+RUNTIME_DIR = Path(os.getenv("LOCALAPPDATA", str(Path.home()))) / "VoiceInput"
+LOG_FILE = RUNTIME_DIR / "voiceinput.log"
 
 # ------------------------------------------------------------------
 # Flask + SocketIO
@@ -28,6 +32,33 @@ PORT = 8765
 app = Flask(__name__, static_folder=str(WEB_DIR))
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 keyboard = Controller()
+server_start_error = None
+
+
+def log_line(message: str):
+    RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with LOG_FILE.open("a", encoding="utf-8") as f:
+        f.write(f"[{ts}] {message}\n")
+
+
+def is_local_server_listening() -> bool:
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(0.6)
+    try:
+        return s.connect_ex(("127.0.0.1", PORT)) == 0
+    finally:
+        s.close()
+
+
+def show_start_error_dialog(message: str):
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(0, message, "Voice Input Startup Error", 0x10)
+    except Exception:
+        pass
 
 
 def _is_candidate_ip(ip: str) -> bool:
@@ -142,7 +173,17 @@ def index():
 def status():
     ips = get_local_ips()
     urls = [f"http://{ip}:{PORT}" for ip in ips]
-    return jsonify({"status": "running", "ip": (ips[0] if ips else "127.0.0.1"), "ips": ips, "urls": urls, "port": PORT})
+    return jsonify(
+        {
+            "status": "running",
+            "ip": (ips[0] if ips else "127.0.0.1"),
+            "ips": ips,
+            "urls": urls,
+            "port": PORT,
+            "server_error": server_start_error,
+            "log_file": str(LOG_FILE),
+        }
+    )
 
 
 @app.route("/<path:path>")
@@ -180,13 +221,23 @@ def on_type_text(data):
 # Server thread
 # ------------------------------------------------------------------
 def run_server():
-    socketio.run(
-        app,
-        host="0.0.0.0",
-        port=PORT,
-        use_reloader=False,
-        log_output=False,
-    )
+    global server_start_error
+    try:
+        log_line(f"Starting HTTP server on 0.0.0.0:{PORT}")
+        socketio.run(
+            app,
+            host="0.0.0.0",
+            port=PORT,
+            use_reloader=False,
+            log_output=False,
+            allow_unsafe_werkzeug=True,
+        )
+    except Exception as exc:
+        server_start_error = f"{type(exc).__name__}: {exc}"
+        print(f"[!] Server failed to start: {server_start_error}")
+        log_line(f"Server failed to start: {server_start_error}")
+        log_line(traceback.format_exc())
+        traceback.print_exc()
 
 
 # ------------------------------------------------------------------
@@ -223,6 +274,17 @@ def create_tray_icon():
         payload = ("\r\n".join(lines)).encode()
         subprocess.run("clip", input=payload, check=True, shell=True)
 
+    def open_local_test_page(icon, item):
+        import webbrowser
+        webbrowser.open(f"http://127.0.0.1:{PORT}")
+
+    def open_log_folder(icon, item):
+        if sys.platform == "win32":
+            os.startfile(str(RUNTIME_DIR))
+            return
+        import webbrowser
+        webbrowser.open(str(RUNTIME_DIR))
+
     def on_quit(icon, item):
         icon.stop()
         os._exit(0)
@@ -240,6 +302,8 @@ def create_tray_icon():
         *qr_items,
         pystray.MenuItem("Copy URL", copy_url),
         pystray.MenuItem("Copy All URLs", copy_all_urls),
+        pystray.MenuItem("Open Local Test Page", open_local_test_page),
+        pystray.MenuItem("Open Log Folder", open_log_folder),
         pystray.MenuItem("Quit", on_quit),
     )
     tray = pystray.Icon(
@@ -255,6 +319,7 @@ def create_tray_icon():
 # Entry point
 # ------------------------------------------------------------------
 if __name__ == "__main__":
+    log_line("VoiceInput process starting")
     generate_icons()
 
     t = threading.Thread(target=run_server, daemon=True)
@@ -265,8 +330,20 @@ if __name__ == "__main__":
         print("[*] Server URLs:")
         for ip in ips:
             print(f"    http://{ip}:{PORT}")
+            log_line(f"Candidate LAN URL: http://{ip}:{PORT}")
     else:
         print(f"[*] Server: http://127.0.0.1:{PORT}")
-    time.sleep(0.8)   # Wait for Flask to bind
+        log_line("No LAN IP candidates found; fallback to localhost only")
+    time.sleep(1.2)   # Wait for Flask to bind
+    if not server_start_error and not is_local_server_listening():
+        server_start_error = (
+            f"Server did not bind on 127.0.0.1:{PORT}. "
+            "Possible causes: firewall rules, another process occupying port, or startup exception."
+        )
+    if server_start_error:
+        err = f"HTTP server startup failed.\n\n{server_start_error}\n\nLog file:\n{LOG_FILE}"
+        print("[!] HTTP server did not start correctly. Check logs.")
+        log_line(f"Startup health check failed: {server_start_error}")
+        show_start_error_dialog(err)
 
     create_tray_icon()

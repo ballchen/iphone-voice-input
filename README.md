@@ -93,6 +93,8 @@ Workflow 檔案位置：
 3. 用 **Copy All URLs**，把網址貼到 iPhone Safari 手動開啟測試
 4. iPhone 關閉「私人 Wi-Fi 位址」後重連該 Wi-Fi 再試一次
 5. 先暫時關掉 VPN / Proxy / 網路隔離功能（手機與電腦都要）
+6. 在系統匣選單點 **Open Local Test Page** 測試 `http://127.0.0.1:8765`
+   - 若本機都打不開，代表 HTTP server 啟動失敗，請改用最新版 Release 重試
 
 ## 外網使用（選用）
 
