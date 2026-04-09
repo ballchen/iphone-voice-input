@@ -84,6 +84,16 @@ Workflow 檔案位置：
 3. 確認文字後按**送出到電腦**
 4. 文字會輸入到 Windows 目前焦點的視窗
 
+## 連線疑難排解（QR 掃了打不開）
+
+若 iPhone 掃 QR 後打不開頁面，請依序確認：
+
+1. 先在 Windows 防火牆允許 `VoiceInput.exe`（或 Python）於**私人網路**
+2. 在系統匣右鍵改用其他 `Show QR Code (<ip>)` 項目（若有多個 IP）
+3. 用 **Copy All URLs**，把網址貼到 iPhone Safari 手動開啟測試
+4. iPhone 關閉「私人 Wi-Fi 位址」後重連該 Wi-Fi 再試一次
+5. 先暫時關掉 VPN / Proxy / 網路隔離功能（手機與電腦都要）
+
 ## 外網使用（選用）
 
 如果想在不同 Wi-Fi 環境下使用，可搭配 Cloudflare Tunnel：

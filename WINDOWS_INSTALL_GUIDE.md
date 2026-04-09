@@ -86,6 +86,8 @@ python server.py
 - 確認 iPhone 與 Windows 在同一個 Wi-Fi
 - 先暫時關閉 VPN、公司網路隔離或訪客網路隔離
 - 重新啟動 `VoiceInput.exe` 或 `python server.py`
+- 在系統匣右鍵選單按 **Copy All URLs**，把網址貼到 iPhone Safari 逐一測試
+- 確認 iPhone 的 Safari 沒有使用行動網路代理，且已允許本機網路存取
 
 ### 2) 可以連線，但文字沒有輸入到目標程式
 

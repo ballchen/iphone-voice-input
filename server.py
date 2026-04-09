@@ -4,6 +4,7 @@ import json
 import socket
 import threading
 import time
+import ipaddress
 from pathlib import Path
 
 from flask import Flask, send_from_directory, jsonify
@@ -29,15 +30,59 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 keyboard = Controller()
 
 
-def get_local_ip() -> str:
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+def _is_candidate_ip(ip: str) -> bool:
     try:
-        s.connect(("8.8.8.8", 80))
-        return s.getsockname()[0]
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    if addr.version != 4:
+        return False
+    return not (addr.is_loopback or addr.is_link_local or addr.is_multicast or addr.is_unspecified)
+
+
+def get_local_ips() -> list[str]:
+    found = []
+    seen = set()
+
+    def add_ip(ip: str):
+        if not _is_candidate_ip(ip):
+            return
+        if ip in seen:
+            return
+        seen.add(ip)
+        found.append(ip)
+
+    # Route-based probing often finds the currently active NIC address.
+    for probe_target in (("8.8.8.8", 80), ("1.1.1.1", 80)):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(probe_target)
+            add_ip(s.getsockname()[0])
+        except Exception:
+            pass
+        finally:
+            s.close()
+
+    try:
+        _, _, host_ips = socket.gethostbyname_ex(socket.gethostname())
+        for ip in host_ips:
+            add_ip(ip)
     except Exception:
-        return "127.0.0.1"
-    finally:
-        s.close()
+        pass
+
+    try:
+        infos = socket.getaddrinfo(socket.gethostname(), None, family=socket.AF_INET)
+        for info in infos:
+            add_ip(info[4][0])
+    except Exception:
+        pass
+
+    return found
+
+
+def get_local_ip() -> str:
+    ips = get_local_ips()
+    return ips[0] if ips else "127.0.0.1"
 
 
 # ------------------------------------------------------------------
@@ -95,7 +140,9 @@ def index():
 
 @app.route("/api/status")
 def status():
-    return jsonify({"status": "running", "ip": get_local_ip(), "port": PORT})
+    ips = get_local_ips()
+    urls = [f"http://{ip}:{PORT}" for ip in ips]
+    return jsonify({"status": "running", "ip": (ips[0] if ips else "127.0.0.1"), "ips": ips, "urls": urls, "port": PORT})
 
 
 @app.route("/<path:path>")
@@ -156,31 +203,49 @@ def make_tray_image(size=64) -> Image.Image:
 
 
 def create_tray_icon():
-    ip = get_local_ip()
-    url = f"http://{ip}:{PORT}"
+    ips = get_local_ips()
+    primary_ip = ips[0] if ips else "127.0.0.1"
+    primary_url = f"http://{primary_ip}:{PORT}"
 
-    def show_qr(icon, item):
-        qr = qrcode.make(url)
-        qr.show()
+    def show_qr_for_url(url: str):
+        def _show_qr(icon, item):
+            qr = qrcode.make(url)
+            qr.show()
+        return _show_qr
 
     def copy_url(icon, item):
         import subprocess
-        subprocess.run("clip", input=url.encode(), check=True, shell=True)
+        subprocess.run("clip", input=primary_url.encode(), check=True, shell=True)
+
+    def copy_all_urls(icon, item):
+        import subprocess
+        lines = [f"http://{ip}:{PORT}" for ip in ips] if ips else [primary_url]
+        payload = ("\r\n".join(lines)).encode()
+        subprocess.run("clip", input=payload, check=True, shell=True)
 
     def on_quit(icon, item):
         icon.stop()
         os._exit(0)
 
+    qr_items = []
+    if ips:
+        for ip in ips:
+            url = f"http://{ip}:{PORT}"
+            qr_items.append(pystray.MenuItem(f"Show QR Code ({ip})", show_qr_for_url(url)))
+    else:
+        qr_items.append(pystray.MenuItem("Show QR Code", show_qr_for_url(primary_url)))
+
     menu = pystray.Menu(
-        pystray.MenuItem(f"Voice Input  —  {url}", None, enabled=False),
-        pystray.MenuItem("Show QR Code", show_qr),
+        pystray.MenuItem(f"Voice Input  —  {primary_url}", None, enabled=False),
+        *qr_items,
         pystray.MenuItem("Copy URL", copy_url),
+        pystray.MenuItem("Copy All URLs", copy_all_urls),
         pystray.MenuItem("Quit", on_quit),
     )
     tray = pystray.Icon(
         "VoiceInput",
         make_tray_image(),
-        f"Voice Input  {url}",
+        f"Voice Input  {primary_url}",
         menu,
     )
     tray.run()
@@ -195,8 +260,13 @@ if __name__ == "__main__":
     t = threading.Thread(target=run_server, daemon=True)
     t.start()
 
-    ip = get_local_ip()
-    print(f"[*] Server: http://{ip}:{PORT}")
+    ips = get_local_ips()
+    if ips:
+        print("[*] Server URLs:")
+        for ip in ips:
+            print(f"    http://{ip}:{PORT}")
+    else:
+        print(f"[*] Server: http://127.0.0.1:{PORT}")
     time.sleep(0.8)   # Wait for Flask to bind
 
     create_tray_icon()
