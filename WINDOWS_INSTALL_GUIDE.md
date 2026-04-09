@@ -118,3 +118,7 @@ dist\VoiceInput.exe
 1. 到 GitHub 建立新 Release（例如 tag `v1.0.0`）
 2. 推送 tag 後，Actions 會自動在 Windows runner 打包 `VoiceInput.exe`
 3. 打包完成後，會自動產生 `VoiceInput-windows.zip` 並附加到該 Release
+
+### 6) 啟動時看到 `Invalid async_mode specified`（舊版 EXE）
+
+這是舊版打包檔漏掉 Socket.IO `threading` driver 的問題。請下載最新版 Release ZIP（`v1.0.1` 以上）並重新解壓執行。

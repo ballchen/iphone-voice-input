@@ -54,6 +54,9 @@ build.bat
 4. 自動建立（或更新）該 tag 的 GitHub Release
 5. 把 `VoiceInput-windows.zip` 附加到該 Release
 
+> 打包時會強制包含 `engineio.async_drivers.threading`，
+> 避免 Windows 執行檔出現 `Invalid async_mode specified`。
+
 Workflow 檔案位置：
 
 ```text
