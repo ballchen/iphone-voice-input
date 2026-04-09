@@ -91,7 +91,7 @@ python server.py
 
 ### 1-2) 網頁可開，但一直顯示「連線中」或看到 `socket.io 400 / io is not defined`
 
-- 請更新到最新版 Release（`v1.0.4` 以上）
+- 請更新到最新版 Release（`v1.0.5` 以上）
 - 在 iPhone Safari 清除該網站資料（設定 → Safari → 進階 → 網站資料）
 - 或刪除主畫面 App 後重新從 Safari 開啟並「加入主畫面」
 - 重新啟動 `VoiceInput.exe` 後再掃 QR 連線
