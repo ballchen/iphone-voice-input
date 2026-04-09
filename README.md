@@ -84,8 +84,8 @@ Workflow 檔案位置：
 3. 確認文字後按**送出到電腦**
 4. 文字會輸入到 Windows 目前焦點的視窗
 
-> 輸入優先採用 Windows Unicode 注入（SendInput / KEYEVENTF_UNICODE），
-> 可繞過注音/拼音鍵盤布局，避免英文被轉成注音符號。
+> 輸入優先採用強制貼上（Clipboard + Ctrl+V / Shift+Insert），
+> 可避開注音/拼音輸入法的鍵盤組字干擾；若失敗才會 fallback。
 
 ## 連線疑難排解（QR 掃了打不開）
 
