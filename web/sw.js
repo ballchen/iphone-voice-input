@@ -1,5 +1,5 @@
 // Service Worker — cache shell for offline launch from home screen
-const CACHE = "voice-input-v1";
+const CACHE = "voice-input-v2";
 const SHELL = ["/", "/manifest.json", "/icons/icon-192.png"];
 
 self.addEventListener("install", e =>
