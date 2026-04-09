@@ -331,8 +331,16 @@ newlineToggle.addEventListener("change", () =>
 );
 
 // ── Socket.IO ───────────────────────────────────────────────────
-// Connect to same host (works when opened via IP or hostname)
-const socket = io({ transports: ["websocket"], reconnectionDelay: 1000 });
+// Use polling + websocket upgrade for maximum compatibility.
+if (typeof io !== "function") {
+  setStatus("error", "Socket 載入失敗");
+  showToast("Socket client 未載入，請重新整理頁面", true);
+  throw new Error("Socket.IO client is not available: io is not defined");
+}
+const socket = io({
+  transports: ["polling", "websocket"],
+  reconnectionDelay: 1000,
+});
 
 socket.on("connect", () => setStatus("connected", "已連線"));
 socket.on("disconnect", () => setStatus("error", "已斷線"));

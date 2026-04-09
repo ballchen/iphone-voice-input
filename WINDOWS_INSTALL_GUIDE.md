@@ -89,6 +89,13 @@ python server.py
 - 在系統匣右鍵選單按 **Copy All URLs**，把網址貼到 iPhone Safari 逐一測試
 - 確認 iPhone 的 Safari 沒有使用行動網路代理，且已允許本機網路存取
 
+### 1-2) 網頁可開，但一直顯示「連線中」或看到 `socket.io 400 / io is not defined`
+
+- 請更新到最新版 Release（`v1.0.4` 以上）
+- 在 iPhone Safari 清除該網站資料（設定 → Safari → 進階 → 網站資料）
+- 或刪除主畫面 App 後重新從 Safari 開啟並「加入主畫面」
+- 重新啟動 `VoiceInput.exe` 後再掃 QR 連線
+
 ### 1-1) Windows 本機也打不開 `http://localhost:8765`
 
 - 在系統匣右鍵選 **Open Local Test Page**，確認是否可開

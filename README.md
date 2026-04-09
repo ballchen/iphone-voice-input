@@ -95,6 +95,7 @@ Workflow 檔案位置：
 5. 先暫時關掉 VPN / Proxy / 網路隔離功能（手機與電腦都要）
 6. 在系統匣選單點 **Open Local Test Page** 測試 `http://127.0.0.1:8765`
    - 若本機都打不開，代表 HTTP server 啟動失敗，請改用最新版 Release 重試
+7. 若 Console 出現 `io is not defined` 或 `socket.io 400`，請更新到最新版 Release（已修正 Socket.IO 連線策略與快取版本）
 
 ## 外網使用（選用）
 
