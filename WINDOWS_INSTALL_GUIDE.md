@@ -108,7 +108,7 @@ python server.py
 - 先用滑鼠點一下目標視窗，確保它有焦點
 - 再從 iPhone 按「送出到電腦」
 - 某些遊戲或高權限程式可能會阻擋模擬鍵盤輸入
-- 新版（`v1.0.8` 以上）改為優先使用強制貼上（Ctrl+V / Shift+Insert），若失敗才 fallback 到 Unicode 注入與逐字輸入
+- 新版（`v1.0.9` 以上）修正 Win32 API 型別與剪貼簿備援（PowerShell Set-Clipboard），避免誤落入逐字輸入 fallback
 
 ### 3) 被 Windows 防火牆擋住
 

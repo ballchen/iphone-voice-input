@@ -5,6 +5,8 @@ import threading
 import time
 import ipaddress
 import traceback
+import ctypes
+from ctypes import wintypes
 from datetime import datetime
 from pathlib import Path
 
@@ -34,35 +36,101 @@ keyboard = Controller()
 server_start_error = None
 
 
-def _set_clipboard_text_windows(text: str):
-    import ctypes
+def _get_win32_api():
+    if sys.platform != "win32":
+        raise RuntimeError("Win32 API is only available on Windows")
+    if hasattr(_get_win32_api, "_cached"):
+        return _get_win32_api._cached
 
+    INPUT_KEYBOARD = 1
+    KEYEVENTF_UNICODE = 0x0004
+    KEYEVENTF_KEYUP = 0x0002
+
+    ULONG_PTR = wintypes.WPARAM
+
+    class KEYBDINPUT(ctypes.Structure):
+        _fields_ = [
+            ("wVk", wintypes.WORD),
+            ("wScan", wintypes.WORD),
+            ("dwFlags", wintypes.DWORD),
+            ("time", wintypes.DWORD),
+            ("dwExtraInfo", ULONG_PTR),
+        ]
+
+    class _INPUTUNION(ctypes.Union):
+        _fields_ = [("ki", KEYBDINPUT)]
+
+    class INPUT(ctypes.Structure):
+        _anonymous_ = ("u",)
+        _fields_ = [("type", wintypes.DWORD), ("u", _INPUTUNION)]
+
+    LPINPUT = ctypes.POINTER(INPUT)
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+    user32.OpenClipboard.argtypes = [wintypes.HWND]
+    user32.OpenClipboard.restype = wintypes.BOOL
+    user32.CloseClipboard.argtypes = []
+    user32.CloseClipboard.restype = wintypes.BOOL
+    user32.EmptyClipboard.argtypes = []
+    user32.EmptyClipboard.restype = wintypes.BOOL
+    user32.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
+    user32.SetClipboardData.restype = wintypes.HANDLE
+    user32.GetClipboardData.argtypes = [wintypes.UINT]
+    user32.GetClipboardData.restype = wintypes.HANDLE
+    user32.SendInput.argtypes = [wintypes.UINT, LPINPUT, ctypes.c_int]
+    user32.SendInput.restype = wintypes.UINT
+
+    kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
+    kernel32.GlobalAlloc.restype = wintypes.HANDLE
+    kernel32.GlobalLock.argtypes = [wintypes.HANDLE]
+    kernel32.GlobalLock.restype = ctypes.c_void_p
+    kernel32.GlobalUnlock.argtypes = [wintypes.HANDLE]
+    kernel32.GlobalUnlock.restype = wintypes.BOOL
+    kernel32.GlobalFree.argtypes = [wintypes.HANDLE]
+    kernel32.GlobalFree.restype = wintypes.HANDLE
+
+    _get_win32_api._cached = {
+        "user32": user32,
+        "kernel32": kernel32,
+        "INPUT": INPUT,
+        "KEYBDINPUT": KEYBDINPUT,
+        "INPUT_KEYBOARD": INPUT_KEYBOARD,
+        "KEYEVENTF_UNICODE": KEYEVENTF_UNICODE,
+        "KEYEVENTF_KEYUP": KEYEVENTF_KEYUP,
+    }
+    return _get_win32_api._cached
+
+
+def _set_clipboard_text_windows(text: str):
     CF_UNICODETEXT = 13
     GMEM_MOVEABLE = 0x0002
 
-    user32 = ctypes.windll.user32
-    kernel32 = ctypes.windll.kernel32
+    api = _get_win32_api()
+    user32 = api["user32"]
+    kernel32 = api["kernel32"]
 
-    for _ in range(10):
+    for _ in range(20):
         if user32.OpenClipboard(None):
             break
         time.sleep(0.01)
     else:
-        raise RuntimeError("OpenClipboard failed")
+        raise RuntimeError(f"OpenClipboard failed (last_error={ctypes.get_last_error()})")
     try:
         if not user32.EmptyClipboard():
-            raise RuntimeError("EmptyClipboard failed")
+            raise RuntimeError(f"EmptyClipboard failed (last_error={ctypes.get_last_error()})")
 
         data = ctypes.create_unicode_buffer(text)
         size = ctypes.sizeof(data)
         hmem = kernel32.GlobalAlloc(GMEM_MOVEABLE, size)
         if not hmem:
-            raise RuntimeError("GlobalAlloc failed")
+            raise RuntimeError(f"GlobalAlloc failed (last_error={ctypes.get_last_error()})")
 
         locked = kernel32.GlobalLock(hmem)
         if not locked:
             kernel32.GlobalFree(hmem)
-            raise RuntimeError("GlobalLock failed")
+            raise RuntimeError(f"GlobalLock failed (last_error={ctypes.get_last_error()})")
         try:
             ctypes.memmove(locked, ctypes.addressof(data), size)
         finally:
@@ -70,20 +138,19 @@ def _set_clipboard_text_windows(text: str):
 
         if not user32.SetClipboardData(CF_UNICODETEXT, hmem):
             kernel32.GlobalFree(hmem)
-            raise RuntimeError("SetClipboardData failed")
+            raise RuntimeError(f"SetClipboardData failed (last_error={ctypes.get_last_error()})")
     finally:
         user32.CloseClipboard()
 
 
 def _get_clipboard_text_windows() -> str:
-    import ctypes
-
     CF_UNICODETEXT = 13
 
-    user32 = ctypes.windll.user32
-    kernel32 = ctypes.windll.kernel32
+    api = _get_win32_api()
+    user32 = api["user32"]
+    kernel32 = api["kernel32"]
 
-    for _ in range(10):
+    for _ in range(20):
         if user32.OpenClipboard(None):
             break
         time.sleep(0.01)
@@ -104,46 +171,88 @@ def _get_clipboard_text_windows() -> str:
         user32.CloseClipboard()
 
 
-def paste_text_ime_safe(text: str):
-    original = _get_clipboard_text_windows()
-    _set_clipboard_text_windows(text)
-    # Try Ctrl+V first.
+def _set_clipboard_text_powershell(text: str):
+    import subprocess
+
+    subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Set-Clipboard -Value ([Console]::In.ReadToEnd())",
+        ],
+        input=text.encode("utf-8"),
+        check=True,
+    )
+
+
+def _get_clipboard_text_powershell() -> str:
+    import subprocess
+
+    result = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Get-Clipboard -Raw",
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=True,
+    )
+    return result.stdout
+
+
+def _set_clipboard_text_best_effort(text: str) -> str:
+    try:
+        _set_clipboard_text_windows(text)
+        return "win32"
+    except Exception as exc:
+        log_line(f"Win32 clipboard set failed: {type(exc).__name__}: {exc}")
+    _set_clipboard_text_powershell(text)
+    return "powershell"
+
+
+def _get_clipboard_text_best_effort() -> tuple[str, str]:
+    try:
+        return _get_clipboard_text_windows(), "win32"
+    except Exception as exc:
+        log_line(f"Win32 clipboard get failed: {type(exc).__name__}: {exc}")
+    return _get_clipboard_text_powershell(), "powershell"
+
+
+def paste_text_ime_safe(text: str) -> str:
+    original, original_backend = _get_clipboard_text_best_effort()
+    set_backend = _set_clipboard_text_best_effort(text)
+    # Use explicit paste to avoid keyboard-layout and IME composition issues.
     keyboard.press(Key.ctrl)
     keyboard.press("v")
     keyboard.release("v")
     keyboard.release(Key.ctrl)
     # Give the target app a moment to consume clipboard content before restore.
-    time.sleep(0.06)
-    # Some apps may block Ctrl+V but accept Shift+Insert.
-    keyboard.press(Key.shift)
-    keyboard.press(Key.insert)
-    keyboard.release(Key.insert)
-    keyboard.release(Key.shift)
-    time.sleep(0.03)
-    _set_clipboard_text_windows(original)
+    time.sleep(0.05)
+    try:
+        if original_backend == "win32":
+            _set_clipboard_text_windows(original)
+        else:
+            _set_clipboard_text_powershell(original)
+    except Exception as exc:
+        log_line(f"Clipboard restore failed: {type(exc).__name__}: {exc}")
+    return set_backend
 
 
 def type_text_unicode_windows(text: str):
-    import ctypes
-
-    INPUT_KEYBOARD = 1
-    KEYEVENTF_UNICODE = 0x0004
-    KEYEVENTF_KEYUP = 0x0002
-
-    class KEYBDINPUT(ctypes.Structure):
-        _fields_ = [
-            ("wVk", ctypes.c_ushort),
-            ("wScan", ctypes.c_ushort),
-            ("dwFlags", ctypes.c_uint),
-            ("time", ctypes.c_uint),
-            ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
-        ]
-
-    class INPUTUNION(ctypes.Union):
-        _fields_ = [("ki", KEYBDINPUT)]
-
-    class INPUT(ctypes.Structure):
-        _fields_ = [("type", ctypes.c_uint), ("union", INPUTUNION)]
+    api = _get_win32_api()
+    user32 = api["user32"]
+    INPUT = api["INPUT"]
+    KEYBDINPUT = api["KEYBDINPUT"]
+    INPUT_KEYBOARD = api["INPUT_KEYBOARD"]
+    KEYEVENTF_UNICODE = api["KEYEVENTF_UNICODE"]
+    KEYEVENTF_KEYUP = api["KEYEVENTF_KEYUP"]
 
     def make_unicode_input(codepoint: int, keyup: bool) -> INPUT:
         flags = KEYEVENTF_UNICODE | (KEYEVENTF_KEYUP if keyup else 0)
@@ -152,9 +261,12 @@ def type_text_unicode_windows(text: str):
             wScan=codepoint,
             dwFlags=flags,
             time=0,
-            dwExtraInfo=None,
+            dwExtraInfo=0,
         )
-        return INPUT(type=INPUT_KEYBOARD, union=INPUTUNION(ki=ki))
+        inp = INPUT()
+        inp.type = INPUT_KEYBOARD
+        inp.ki = ki
+        return inp
 
     events = []
     utf16 = text.encode("utf-16-le")
@@ -166,13 +278,10 @@ def type_text_unicode_windows(text: str):
     if not events:
         return
 
-    sent = ctypes.windll.user32.SendInput(
-        len(events),
-        (INPUT * len(events))(*events),
-        ctypes.sizeof(INPUT),
-    )
+    event_array = (INPUT * len(events))(*events)
+    sent = user32.SendInput(len(event_array), event_array, ctypes.sizeof(INPUT))
     if sent != len(events):
-        raise RuntimeError(f"SendInput failed: sent {sent}/{len(events)}")
+        raise RuntimeError(f"SendInput failed: sent {sent}/{len(events)}, last_error={ctypes.get_last_error()}")
 
 
 def log_line(message: str):
@@ -360,9 +469,9 @@ def on_type_text(data):
     if sys.platform == "win32":
         try:
             # First choice: explicit paste, usually IME/layout independent.
-            paste_text_ime_safe(text)
+            backend = paste_text_ime_safe(text)
             typed_ok = True
-            log_line("Input method used: clipboard_paste")
+            log_line(f"Input method used: clipboard_paste({backend})")
         except Exception as exc:
             log_line(f"Clipboard paste fallback triggered: {type(exc).__name__}: {exc}")
             try:
