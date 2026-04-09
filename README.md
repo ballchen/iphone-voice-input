@@ -84,6 +84,8 @@ Workflow 檔案位置：
 3. 確認文字後按**送出到電腦**
 4. 文字會輸入到 Windows 目前焦點的視窗
 
+> 輸入採用 IME-safe 貼上策略（Clipboard + Ctrl+V），可避免 Windows 注音/拼音輸入法把英文轉成注音符號。
+
 ## 連線疑難排解（QR 掃了打不開）
 
 若 iPhone 掃 QR 後打不開頁面，請依序確認：

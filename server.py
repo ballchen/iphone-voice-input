@@ -1,6 +1,5 @@
 import os
 import sys
-import json
 import socket
 import threading
 import time
@@ -33,6 +32,88 @@ app = Flask(__name__, static_folder=str(WEB_DIR))
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 keyboard = Controller()
 server_start_error = None
+
+
+def _set_clipboard_text_windows(text: str):
+    import ctypes
+
+    CF_UNICODETEXT = 13
+    GMEM_MOVEABLE = 0x0002
+
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+
+    for _ in range(10):
+        if user32.OpenClipboard(None):
+            break
+        time.sleep(0.01)
+    else:
+        raise RuntimeError("OpenClipboard failed")
+    try:
+        if not user32.EmptyClipboard():
+            raise RuntimeError("EmptyClipboard failed")
+
+        data = ctypes.create_unicode_buffer(text)
+        size = ctypes.sizeof(data)
+        hmem = kernel32.GlobalAlloc(GMEM_MOVEABLE, size)
+        if not hmem:
+            raise RuntimeError("GlobalAlloc failed")
+
+        locked = kernel32.GlobalLock(hmem)
+        if not locked:
+            kernel32.GlobalFree(hmem)
+            raise RuntimeError("GlobalLock failed")
+        try:
+            ctypes.memmove(locked, ctypes.addressof(data), size)
+        finally:
+            kernel32.GlobalUnlock(hmem)
+
+        if not user32.SetClipboardData(CF_UNICODETEXT, hmem):
+            kernel32.GlobalFree(hmem)
+            raise RuntimeError("SetClipboardData failed")
+    finally:
+        user32.CloseClipboard()
+
+
+def _get_clipboard_text_windows() -> str:
+    import ctypes
+
+    CF_UNICODETEXT = 13
+
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+
+    for _ in range(10):
+        if user32.OpenClipboard(None):
+            break
+        time.sleep(0.01)
+    else:
+        return ""
+    try:
+        hdata = user32.GetClipboardData(CF_UNICODETEXT)
+        if not hdata:
+            return ""
+        locked = kernel32.GlobalLock(hdata)
+        if not locked:
+            return ""
+        try:
+            return ctypes.wstring_at(locked)
+        finally:
+            kernel32.GlobalUnlock(hdata)
+    finally:
+        user32.CloseClipboard()
+
+
+def paste_text_ime_safe(text: str):
+    original = _get_clipboard_text_windows()
+    _set_clipboard_text_windows(text)
+    keyboard.press(Key.ctrl)
+    keyboard.press("v")
+    keyboard.release("v")
+    keyboard.release(Key.ctrl)
+    # Give the target app a moment to consume clipboard content before restore.
+    time.sleep(0.03)
+    _set_clipboard_text_windows(original)
 
 
 def log_line(message: str):
@@ -216,7 +297,16 @@ def on_type_text(data):
     if not text:
         return
     time.sleep(0.05)          # Let the focus return to target window
-    keyboard.type(text)
+    paste_ok = False
+    if sys.platform == "win32":
+        try:
+            # Paste is IME-safe: avoids Zhuyin/Pinyin conversion issues.
+            paste_text_ime_safe(text)
+            paste_ok = True
+        except Exception as exc:
+            log_line(f"IME-safe paste fallback triggered: {type(exc).__name__}: {exc}")
+    if not paste_ok:
+        keyboard.type(text)
     if data.get("newline"):
         keyboard.press(Key.enter)
         keyboard.release(Key.enter)
