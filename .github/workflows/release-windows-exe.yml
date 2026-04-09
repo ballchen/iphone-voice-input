@@ -1,12 +1,13 @@
-name: Release Windows EXE
+name: Release Windows Package
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to upload VoiceInput.exe to (for manual rerun)
+        description: Existing tag to build and upload ZIP package
         required: true
         type: string
 
@@ -14,7 +15,7 @@ permissions:
   contents: write
 
 jobs:
-  build-and-upload:
+  build-and-release:
     runs-on: windows-latest
 
     steps:
@@ -31,19 +32,38 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Resolve release tag
+        id: vars
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            "tag=${{ github.event.inputs.tag }}" >> $env:GITHUB_OUTPUT
+          } else {
+            "tag=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
+          }
+
       - name: Build Windows executable
         run: |
           pyinstaller --onefile --noconsole --name VoiceInput --add-data "web;web" server.py
 
+      - name: Package zip for release
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          Copy-Item "dist/VoiceInput.exe" "release/VoiceInput.exe" -Force
+          Compress-Archive -Path "release/VoiceInput.exe" -DestinationPath "dist/VoiceInput-${{ steps.vars.outputs.tag }}-windows.zip" -Force
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VoiceInput-exe
-          path: dist/VoiceInput.exe
+          name: VoiceInput-windows-zip
+          path: dist/VoiceInput-${{ steps.vars.outputs.tag }}-windows.zip
           if-no-files-found: error
 
-      - name: Upload exe to GitHub Release
+      - name: Create or update GitHub Release asset
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/VoiceInput.exe
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.event.release.tag_name }}
+          files: dist/VoiceInput-${{ steps.vars.outputs.tag }}-windows.zip
+          tag_name: ${{ steps.vars.outputs.tag }}
+          generate_release_notes: true
+          draft: false
