@@ -106,8 +106,22 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      max-height: 56px;
+      opacity: 1;
+      transform: translateY(0);
+      overflow: hidden;
+      transition: max-height 0.18s ease, opacity 0.16s ease, transform 0.16s ease, margin 0.16s ease, padding 0.16s ease, border-width 0.16s ease;
     }
     .hint span { font-size: 18px; }
+    .hint.collapsed {
+      max-height: 0;
+      opacity: 0;
+      transform: translateY(-6px);
+      margin: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      border-width: 0;
+    }
 
     /* ── Textarea ── */
     .textarea-wrap {
@@ -334,12 +348,14 @@ const inputEl       = document.getElementById("input");
 const charCount     = document.getElementById("char-count");
 const statusEl      = document.getElementById("status");
 const statusText    = document.getElementById("status-text");
+const hintEl        = document.querySelector(".hint");
 const actionsWrap   = document.getElementById("actions-wrap");
 const btnSend       = document.getElementById("btn-send");
 const btnClear      = document.getElementById("btn-clear");
 const newlineToggle = document.getElementById("newline-toggle");
 const toastEl       = document.getElementById("toast");
 let toastTimer;
+let keyboardOpen = false;
 
 // ── Restore toggle preference ───────────────────────────────────
 newlineToggle.checked = localStorage.getItem("newline") === "1";
@@ -429,6 +445,11 @@ function applyKeyboardOffset() {
   const vv = window.visualViewport;
   const keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
   document.documentElement.style.setProperty("--keyboard-offset", `${keyboardHeight}px`);
+  const isOpen = keyboardHeight > 70;
+  if (isOpen !== keyboardOpen) {
+    keyboardOpen = isOpen;
+    if (hintEl) hintEl.classList.toggle("collapsed", keyboardOpen);
+  }
 }
 
 function ensureInputVisible() {
