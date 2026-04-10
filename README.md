@@ -86,6 +86,7 @@ Workflow 檔案位置：
 
 > 輸入優先採用強制貼上（Clipboard + Ctrl+V），
 > 可避開注音/拼音輸入法的鍵盤組字干擾；若失敗才會 fallback。
+> iPhone 鍵盤彈出時，送出按鈕會自動上移避免被遮擋（`visualViewport` 調整）。
 
 ## 連線疑難排解（QR 掃了打不開）
 
