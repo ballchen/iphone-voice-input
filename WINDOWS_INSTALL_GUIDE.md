@@ -89,13 +89,6 @@ python server.py
 - 在系統匣右鍵選單按 **Copy All URLs**，把網址貼到 iPhone Safari 逐一測試
 - 確認 iPhone 的 Safari 沒有使用行動網路代理，且已允許本機網路存取
 
-### 1-2) 網頁可開，但一直顯示「連線中」或看到 `socket.io 400 / io is not defined`
-
-- 請更新到最新版 Release（`v1.0.5` 以上）
-- 在 iPhone Safari 清除該網站資料（設定 → Safari → 進階 → 網站資料）
-- 或刪除主畫面 App 後重新從 Safari 開啟並「加入主畫面」
-- 重新啟動 `VoiceInput.exe` 後再掃 QR 連線
-
 ### 1-1) Windows 本機也打不開 `http://localhost:8765`
 
 - 在系統匣右鍵選 **Open Local Test Page**，確認是否可開
@@ -108,13 +101,18 @@ python server.py
 - 先用滑鼠點一下目標視窗，確保它有焦點
 - 再從 iPhone 按「送出到電腦」
 - 某些遊戲或高權限程式可能會阻擋模擬鍵盤輸入
-- 新版（`v1.0.9` 以上）修正 Win32 API 型別與剪貼簿備援（PowerShell Set-Clipboard），避免誤落入逐字輸入 fallback
+- 若英文在注音/拼音狀態下仍被轉成組字，請先確認使用最新 Release 版本
 
 ### 2-1) iPhone 鍵盤彈出後擋到「送出到電腦」按鈕
 
-- 新版（`v1.1.0` 以上）已加入行動端鍵盤 UX 修正，底部操作列會依鍵盤高度自動上移
 - 若你是主畫面 PWA，請刪除舊的主畫面圖示後重新加入（避免舊前端快取）
 - 若仍被擋住，先在 Safari 直接開啟（非主畫面）測試是否正常
+
+### 2-2) 網頁可開，但一直顯示「連線中」或看到 `socket.io 400 / io is not defined`
+
+- 在 iPhone Safari 清除該網站資料（設定 → Safari → 進階 → 網站資料）
+- 或刪除主畫面 App 後重新從 Safari 開啟並「加入主畫面」
+- 重新啟動 `VoiceInput.exe` 後再掃 QR 連線
 
 ### 3) 被 Windows 防火牆擋住
 
@@ -142,6 +140,6 @@ dist\VoiceInput.exe
 2. 推送 tag 後，Actions 會自動在 Windows runner 打包 `VoiceInput.exe`
 3. 打包完成後，會自動產生 `VoiceInput-windows.zip` 並附加到該 Release
 
-### 6) 啟動時看到 `Invalid async_mode specified`（舊版 EXE）
+### 6) 啟動時看到 `Invalid async_mode specified`
 
-這是舊版打包檔漏掉 Socket.IO `threading` driver 的問題。請下載最新版 Release ZIP（`v1.0.1` 以上）並重新解壓執行。
+請先下載最新 Release ZIP 並重新解壓執行；若仍出現，附上 log 給維護者排查。
