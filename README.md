@@ -6,6 +6,7 @@
 
 - Windows 一鍵/簡易安裝請看：[`WINDOWS_INSTALL_GUIDE.md`](./WINDOWS_INSTALL_GUIDE.md)
 - 使用者直接下載：到 GitHub **Releases** 下載 `VoiceInput-windows.zip`
+- 版本更新紀錄請看：[`CHANGELOG.md`](./CHANGELOG.md)
 
 ## 功能
 
@@ -84,10 +85,6 @@ Workflow 檔案位置：
 3. 確認文字後按**送出到電腦**
 4. 文字會輸入到 Windows 目前焦點的視窗
 
-> 輸入優先採用強制貼上（Clipboard + Ctrl+V），
-> 可避開注音/拼音輸入法的鍵盤組字干擾；若失敗才會 fallback。
-> iPhone 鍵盤彈出時，送出按鈕會自動上移避免被遮擋（`visualViewport` 調整）。
-
 ## 連線疑難排解（QR 掃了打不開）
 
 若 iPhone 掃 QR 後打不開頁面，請依序確認：
@@ -99,7 +96,7 @@ Workflow 檔案位置：
 5. 先暫時關掉 VPN / Proxy / 網路隔離功能（手機與電腦都要）
 6. 在系統匣選單點 **Open Local Test Page** 測試 `http://127.0.0.1:8765`
    - 若本機都打不開，代表 HTTP server 啟動失敗，請改用最新版 Release 重試
-7. 若 Console 出現 `io is not defined` 或 `socket.io 400`，請更新到最新版 Release（已改為內建 Socket.IO client script，並修正初始化順序）
+7. 若 Console 出現 `io is not defined` 或 `socket.io 400`，請更新到最新版 Release 後重試
 
 ## 外網使用（選用）
 
